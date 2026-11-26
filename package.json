@@ -1,0 +1,12 @@
+{
+  "name": "medidispenser-web",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MediDispenserWeb: ASP.NET Core 8 + MQTTnet 4.x + SQLite + Vanilla JS medication dispenser manager",
+  "scripts": {
+    "build": "dotnet build MediDispenserWeb.sln",
+    "start": "dotnet run --project MediDispenserWeb",
+    "dev": "dotnet watch --project MediDispenserWeb",
+    "sim": "dotnet run --project MqttSimulator -- broker.hivemq.com 1883 medidispenser disp01"
+  }
+}
