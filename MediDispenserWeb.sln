@@ -1,0 +1,25 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediDispenserWeb", "MediDispenserWeb\MediDispenserWeb.csproj", "{6B1F3A52-8C1D-4E7A-9D41-2A5C0E7B9F10}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MqttSimulator", "MqttSimulator\MqttSimulator.csproj", "{A2C3D4E5-F6A7-B8C9-D0E1-F2A3B4C5D6E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6B1F3A52-8C1D-4E7A-9D41-2A5C0E7B9F10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B1F3A52-8C1D-4E7A-9D41-2A5C0E7B9F10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B1F3A52-8C1D-4E7A-9D41-2A5C0E7B9F10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B1F3A52-8C1D-4E7A-9D41-2A5C0E7B9F10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2C3D4E5-F6A7-B8C9-D0E1-F2A3B4C5D6E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2C3D4E5-F6A7-B8C9-D0E1-F2A3B4C5D6E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2C3D4E5-F6A7-B8C9-D0E1-F2A3B4C5D6E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2C3D4E5-F6A7-B8C9-D0E1-F2A3B4C5D6E7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

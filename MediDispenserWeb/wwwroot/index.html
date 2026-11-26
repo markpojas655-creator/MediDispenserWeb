@@ -1,0 +1,1310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediDispenser</title>
+<style>
+/* ═══════════════════════ DESIGN TOKENS ═══════════════════════ */
+:root {
+  --bg:#f4f7f6; --bg2:#e8eeec; --card:#fff; --ink:#1d2b28; --mute:#6b7c78;
+  --line:#dfe7e4; --ok:#1e8e5a; --warn:#c98a00; --bad:#c0392b; --acc:#145a32;
+  --acc2:#1a7a44; --badge:#e8f5e9; --badge-ink:#145a32;
+  --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.08);
+  color-scheme: light dark;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0f1412; --bg2:#1a2320; --card:#1b2421; --ink:#e6efec; --mute:#8a9e98;
+  --line:#2a3733; --acc:#4cc38a; --acc2:#3aa876; --badge:#1a3328; --badge-ink:#6fdc9e;
+  --shadow:0 1px 4px rgba(0,0,0,.3);
+}}
+
+/* ═══════════════════════ RESET / BASE ═══════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,'Segoe UI',sans-serif}
+a{color:var(--acc);text-decoration:none}
+button,select,input,textarea{font:inherit;color:inherit;border-radius:var(--radius)}
+input,select,textarea{background:var(--bg2);border:1px solid var(--line);padding:8px 12px}
+button{cursor:pointer;border:none;padding:8px 16px;border-radius:var(--radius);background:var(--acc);color:#fff;font-weight:600;transition:background .15s}
+button:hover{background:var(--acc2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.secondary{background:var(--bg2);color:var(--ink);border:1px solid var(--line)}
+button.secondary:hover{background:var(--line)}
+button.danger{background:var(--bad)}
+button.danger:hover{background:#a83225}
+button.small{padding:4px 10px;font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line)}
+th{font-size:12px;text-transform:uppercase;color:var(--mute);font-weight:600;letter-spacing:.04em}
+
+/* ═══════════════════════ LAYOUT ═══════════════════════ */
+header{position:sticky;top:0;z-index:100;background:var(--card);border-bottom:1px solid var(--line);padding:0 16px;display:flex;align-items:center;gap:12px;height:56px;box-shadow:var(--shadow)}
+header h1{font-size:18px;white-space:nowrap}
+header .spacer{flex:1}
+#deviceSelect{max-width:180px}
+.lang-btn{padding:4px 12px;font-size:13px;border-radius:20px;border:1px solid var(--line);background:var(--badge);color:var(--badge-ink);font-weight:600}
+.lang-btn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+nav{display:flex;gap:2px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--line);padding:0 12px}
+nav button{background:transparent;color:var(--mute);font-weight:500;padding:12px 14px;border-radius:0;border-bottom:2px solid transparent;white-space:nowrap;font-size:14px}
+nav button.active{color:var(--acc);border-bottom-color:var(--acc)}
+nav button:hover{color:var(--ink)}
+
+main{max-width:1100px;margin:0 auto;padding:16px}
+.page{display:none} .page.active{display:block}
+
+/* ═══════════════════════ CARDS ═══════════════════════ */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin-bottom:10px}
+.card h3{font-size:15px;margin-bottom:8px}
+.row{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.big{font-size:22px;font-weight:700}
+.mute{color:var(--mute);font-size:13px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:var(--mute)}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+
+/* badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.badge-ok{background:var(--badge);color:var(--badge-ink)}
+.badge-off{background:#fce4e4;color:var(--bad)}
+@media(prefers-color-scheme:dark){.badge-off{background:#3a1c1c;color:#f28b8b}}
+.badge-warn{background:#fff8e1;color:var(--warn)}
+@media(prefers-color-scheme:dark){.badge-warn{background:#332b10;color:#e6b800}}
+
+/* ═══════════════════════ SLOTS ═══════════════════════ */
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.slot{padding:14px 0;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink);font-size:16px;cursor:pointer;text-align:center;transition:all .15s}
+.slot.sel{background:var(--acc);color:#fff;border-color:var(--acc)}
+.slot.act{outline:3px solid var(--warn)}
+
+/* ═══════════════════════ EVENTS LOG ═══════════════════════ */
+.ev{display:grid;grid-template-columns:140px 80px 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px;align-items:center}
+@media(max-width:600px){.ev{grid-template-columns:70px 70px 1fr;font-size:13px}}
+.tag{font-size:12px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:6px}
+.t-dispensed{color:var(--ok)} .t-taken{color:var(--ok)} .t-returned{color:var(--warn)}
+.t-reminder{color:var(--warn)} .t-missed{color:var(--bad)} .t-empty{color:var(--bad)}
+.t-jam{color:var(--bad)} .t-command{color:var(--acc)} .t-info{color:var(--mute)}
+
+/* ═══════════════════════ SYSTEM FLOW DIAGRAM ═══════════════════════ */
+.flow-diagram{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:16px 0}
+.flow-box{padding:12px 20px;border:2px solid var(--line);border-radius:var(--radius);background:var(--bg2);font-weight:600;font-size:14px;text-align:center;min-width:120px;transition:all .3s}
+.flow-box.active{border-color:var(--acc);background:var(--acc);color:#fff;box-shadow:0 0 12px rgba(76,195,138,.4)}
+.flow-arrow{display:flex;align-items:center;color:var(--mute);font-size:20px}
+
+/* ═══════════════════════ CALIBRATION ═══════════════════════ */
+.jog-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.jog-controls button{min-width:40px}
+.pocket-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pocket-btn{padding:12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg2);text-align:center;cursor:pointer;font-weight:600}
+.pocket-btn.checked{border-color:var(--ok);background:var(--badge)}
+
+/* ═══════════════════════ WEEKLY CALENDAR ═══════════════════════ */
+.week-grid{display:grid;grid-template-columns:60px repeat(7,1fr);gap:1px;background:var(--line);border-radius:var(--radius);overflow:hidden}
+.week-cell{background:var(--card);padding:6px 8px;font-size:12px;min-height:40px}
+.week-header{background:var(--bg2);font-weight:700;text-align:center;padding:8px}
+.week-time{font-weight:600;background:var(--bg2);display:flex;align-items:center;justify-content:center}
+.week-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;background:var(--badge);color:var(--badge-ink);margin:1px}
+
+/* ═══════════════════════ MODALS ═══════════════════════ */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--card);border-radius:var(--radius);padding:24px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal h2{font-size:18px;margin-bottom:16px}
+.modal label{display:block;margin-bottom:12px;font-size:14px}
+.modal label span{display:block;font-weight:600;margin-bottom:4px}
+.modal input,.modal select{width:100%}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* chips for days */
+.day-chips{display:flex;gap:4px;flex-wrap:wrap}
+.day-chip{padding:4px 10px;border-radius:16px;font-size:13px;border:1px solid var(--line);background:var(--bg2);cursor:pointer;user-select:none;font-weight:500}
+.day-chip.selected{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* toggle switch */
+.toggle{position:relative;display:inline-block;width:44px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--line);border-radius:24px;cursor:pointer;transition:.2s}
+.toggle .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.slider{background:var(--acc)}
+.toggle input:checked+.slider:before{transform:translateX(20px)}
+
+/* ═══════════════════════ TEST CHECKLIST ═══════════════════════ */
+.test-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.test-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.test-pass{background:var(--badge);color:var(--ok)}
+.test-fail{background:#fce4e4;color:var(--bad)}
+.test-wait{background:var(--bg2);color:var(--mute)}
+
+/* ═══════════════════════ TOAST ═══════════════════════ */
+#toast{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast-msg{padding:12px 20px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:14px;animation:slideIn .3s}
+.toast-msg.error{border-color:var(--bad);color:var(--bad)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* responsive */
+@media(max-width:600px){
+  header{flex-wrap:wrap;height:auto;padding:8px 12px}
+  main{padding:8px}
+  .row{grid-template-columns:1fr}
+  .slots{grid-template-columns:repeat(4,1fr)}
+  nav{padding:0 4px}
+  nav button{padding:10px 8px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header>
+  <h1>💊 MediDispenser</h1>
+  <select id="deviceSelect" title="Select device"><option value="">No devices</option></select>
+  <span class="mute" id="brokerStatus"><span class="dot" id="brokerDot"></span>Broker</span>
+  <div class="spacer"></div>
+  <button class="lang-btn" id="langEn" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" id="langTl" onclick="setLang('tl')">TL</button>
+</header>
+
+<!-- ═══════════════════════ NAV ═══════════════════════ -->
+<nav id="nav">
+  <button class="active" data-page="dashboard">Dashboard</button>
+  <button data-page="devices">Devices</button>
+  <button data-page="schedule">Schedule</button>
+  <button data-page="flow">System Flow</button>
+  <button data-page="tests">Tests</button>
+  <button data-page="calibration">Calibration</button>
+  <button data-page="alerts">Alerts</button>
+  <button data-page="settings">Settings</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+<div class="page active" id="page-dashboard">
+  <div class="row">
+    <div class="card"><h2>Broker</h2><div class="big"><span class="dot" id="dBroker"></span><span id="tBroker">...</span></div></div>
+    <div class="card"><h2>Device</h2><div class="big"><span class="dot" id="dDevice"></span><span id="tDevice">...</span></div><div class="mute" id="hbInfo"></div></div>
+    <div class="card"><h2>Battery</h2><div class="big" id="batteryVal">--%</div></div>
+    <div class="card"><h2>Tray Sensor</h2><div class="big" id="irVal">...</div><div class="mute" id="stateVal"></div></div>
+  </div>
+
+  <div class="row">
+    <div class="card"><h2>Next Dose</h2><div class="big" id="nextDose">--</div><div class="mute" id="nextDoseLabel"></div></div>
+    <div class="card"><h2>Today's Doses</h2><div id="todayDoses">--</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Dispense Now</h2>
+    <div class="slots" id="slots"></div>
+    <p style="margin-top:12px">Amount: <select id="amt"><option>1</option><option>2</option><option>3</option></select></p>
+    <button style="margin-top:12px;width:100%;padding:14px" id="goDispense" disabled>Dispense</button>
+    <div class="mute" id="dispenseMsg" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Activity Log</h2>
+    <div id="activityLog"><span class="mute">No events yet.</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ DEVICES ═══════════════════════ -->
+<div class="page" id="page-devices">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:20px">Devices</h2>
+    <button onclick="showDeviceModal()">+ Add Device</button>
+  </div>
+  <div class="card"><table id="devicesTable">
+    <thead><tr><th>Name</th><th>Device ID</th><th>Status</th><th>Battery</th><th>State</th><th>Last HB</th><th>Actions</th></tr></thead>
+    <tbody id="devicesBody"></tbody>
+  </table></div>
+
+  <div class="card" id="unregisteredCard" style="display:none">
+    <h2>Unregistered Devices Heard on Broker</h2>
+    <div id="unregisteredList"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SCHEDULE ═══════════════════════ -->
+<div class="page" id="page-schedule">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <h2 style="font-size:20px">Schedule <span class="mute" id="scheduleDevice"></span></h2>
+    <div style="display:flex;gap:8px">
+      <span class="badge" id="syncBadge">--</span>
+      <button class="small secondary" onclick="resendSchedule()">Resend Schedule</button>
+      <button class="small" onclick="showScheduleModal()">+ Add Dose</button>
+    </div>
+  </div>
+  <div class="card"><table>
+    <thead><tr><th>#</th><th>Time</th><th>Days</th><th>Comp.</th><th>Amount</th><th>Label</th><th>Enabled</th><th>Actions</th></tr></thead>
+    <tbody id="scheduleBody"></tbody>
+  </table></div>
+
+  <div class="card"><h2>Weekly Calendar</h2><div id="weekCalendar"></div></div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">Adherence History</h2>
+      <button class="small secondary" onclick="exportCsv()">Export CSV</button>
+    </div>
+    <div id="adherenceChart" style="height:200px;position:relative"></div>
+    <div id="adherenceStats" class="mute"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SYSTEM FLOW ═══════════════════════ -->
+<div class="page" id="page-flow">
+  <h2 style="font-size:20px;margin-bottom:16px">System Flow <span class="mute" id="flowDevice"></span></h2>
+  <div class="card">
+    <div class="flow-diagram" id="flowDiagram">
+      <div class="flow-box" data-state="idle" id="flow-idle">💤 Idle</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" data-state="precheck">🔍 Pre-check</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" data-state="dispensing">⚙️ Dispensing</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" data-state="confirming">✅ Confirm Landing</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" data-state="waiting">⏳ Waiting for Patient</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" data-state="taken">🎉 Taken</div>
+    </div>
+    <div class="flow-diagram" style="margin-top:8px">
+      <div class="flow-box" data-state="returned" style="border-color:var(--warn)">↩️ Put Back</div>
+      <div class="flow-box" data-state="reminder" style="border-color:var(--warn)">🔔 Reminder (5m)</div>
+      <div class="flow-box" data-state="missed" style="border-color:var(--bad)">❌ Missed (10m)</div>
+      <div class="flow-box" data-state="empty" style="border-color:var(--bad)">🚫 Empty</div>
+      <div class="flow-box" data-state="jam" style="border-color:var(--bad)">⚠️ Jam</div>
+    </div>
+  </div>
+
+  <div class="card"><h2>Flow Description</h2>
+    <ol style="padding-left:20px;font-size:14px;line-height:1.8">
+      <li><strong>Idle:</strong> Device waits. Sends heartbeat every 15 seconds.</li>
+      <li><strong>Scheduled time</strong> arrives (device RTC) or web app sends a manual dispense command.</li>
+      <li><strong>Pre-check:</strong> Pocket must be loaded (IR 2 / loaded-pocket memory). If empty → alert, red LED, stop.</li>
+      <li><strong>Dispense:</strong> Rotate carousel to pocket, open hatch, drop piece, close hatch. Play "time to take your medicine" voice, green LED.</li>
+      <li><strong>Confirm landing:</strong> IR 1 sees the piece. If not → wiggle ±4° and retry (max 3). Still nothing → jam alert.</li>
+      <li><strong>Wait for patient:</strong> Status = waiting.</li>
+      <li><strong>IR 1 clear</strong> (piece removed) → publish <em>taken</em>, play "thank you", back to idle.</li>
+      <li><strong>Piece put back</strong> after being taken → publish <em>returned</em>, play "pill put back".</li>
+      <li><strong>5 minutes</strong> with no pick-up → publish <em>reminder</em> alert, repeat voice.</li>
+      <li><strong>10 minutes</strong> (or next scheduled dose arrives first) → publish <em>missed</em> alert, play "dose missed", yellow/red LED.</li>
+      <li>Back to <strong>idle</strong>.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ═══════════════════════ TESTS ═══════════════════════ -->
+<div class="page" id="page-tests">
+  <h2 style="font-size:20px;margin-bottom:16px">System Tests <span class="mute" id="testDevice"></span></h2>
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button onclick="runTest('all')" id="btnTestAll">▶ Run Full Test</button>
+      <button class="secondary small" onclick="runTest('carousel')">Carousel</button>
+      <button class="secondary small" onclick="runTest('hatch')">Hatch</button>
+      <button class="secondary small" onclick="runTest('ir1')">IR 1</button>
+      <button class="secondary small" onclick="runTest('ir2')">IR 2</button>
+      <button class="secondary small" onclick="runTest('sound')">Sound</button>
+      <button class="secondary small" onclick="runTest('leds')">LEDs</button>
+      <button class="secondary small" onclick="runTest('tft')">TFT</button>
+      <button class="secondary small" onclick="runTest('rtc')">RTC</button>
+    </div>
+    <div id="testResults"><span class="mute">No test results yet. Run a test above.</span></div>
+  </div>
+
+  <div class="card"><h2>Test History</h2><div id="testHistory"><span class="mute">No test history.</span></div></div>
+
+  <div class="card">
+    <h2>Voice Files Reference</h2>
+    <p class="mute" style="margin-bottom:12px">DFPlayer SD card layout. Folder /01 = English, /02 = Tagalog. Same filenames in both.</p>
+    <table>
+      <thead><tr><th>File</th><th>English</th><th>Tagalog</th><th>Test</th></tr></thead>
+      <tbody>
+        <tr><td>0001</td><td>Time to take your medicine</td><td>Oras na para uminom ng gamot</td><td><button class="small secondary" onclick="testVoice(1)">▶</button></td></tr>
+        <tr><td>0002</td><td>Thank you</td><td>Salamat po</td><td><button class="small secondary" onclick="testVoice(2)">▶</button></td></tr>
+        <tr><td>0003</td><td>Dose missed</td><td>Hindi nainom ang gamot</td><td><button class="small secondary" onclick="testVoice(3)">▶</button></td></tr>
+        <tr><td>0004</td><td>Pill put back</td><td>Ibinalik ang gamot</td><td><button class="small secondary" onclick="testVoice(4)">▶</button></td></tr>
+        <tr><td>0005</td><td>Empty or jam, please refill</td><td>Walang laman o may bara. Pakilagyan po ng gamot.</td><td><button class="small secondary" onclick="testVoice(5)">▶</button></td></tr>
+        <tr><td>0006</td><td colspan="2">Start-up chime</td><td><button class="small secondary" onclick="testVoice(6)">▶</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════ CALIBRATION ═══════════════════════ -->
+<div class="page" id="page-calibration">
+  <h2 style="font-size:20px;margin-bottom:16px">Carousel Calibration <span class="mute" id="calibDevice"></span></h2>
+
+  <div class="card">
+    <h2>Step 1: Set Home Position</h2>
+    <p class="mute" style="margin-bottom:12px">Jog the carousel until pocket 1 is exactly over the hatch.</p>
+    <div class="jog-controls">
+      <button class="secondary small" onclick="jogCarousel(-5)">◀◀ 5°</button>
+      <button class="secondary small" onclick="jogCarousel(-1)">◀ 1°</button>
+      <button class="secondary small" onclick="jogCarousel(-0.5)">◀ 0.5°</button>
+      <button class="secondary small" onclick="jogCarousel(0.5)">0.5° ▶</button>
+      <button class="secondary small" onclick="jogCarousel(1)">1° ▶</button>
+      <button class="secondary small" onclick="jogCarousel(5)">5° ▶▶</button>
+    </div>
+    <p style="margin-top:8px">Current home: <strong id="calibHome">90</strong>°</p>
+    <button style="margin-top:8px" onclick="setHome()">Set Home Here</button>
+    <div class="mute" style="margin-top:8px" id="calibHomeWarn"></div>
+  </div>
+
+  <div class="card">
+    <h2>Step 2: Check Each Pocket</h2>
+    <p class="mute" style="margin-bottom:12px">Click a pocket to move the carousel there. Jog if misaligned and save the offset.</p>
+    <div class="pocket-grid" id="pocketGrid"></div>
+    <div style="margin-top:12px">
+      <span class="mute">Offset for pocket <strong id="calibPocketNum">-</strong>:</span>
+      <div class="jog-controls" style="margin-top:4px">
+        <button class="secondary small" onclick="jogCarousel(-0.5)">◀ 0.5°</button>
+        <button class="secondary small" onclick="jogCarousel(0.5)">0.5° ▶</button>
+        <button class="small" onclick="savePocketOffset()">Save Offset</button>
+      </div>
+      <span class="mute" id="calibOffsets"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: Hatch Angles</h2>
+    <p class="mute" style="margin-bottom:12px">Set the MG90S closed and open angles.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <label>Closed angle: <input type="number" id="hatchClosed" value="0" min="0" max="180" step="1"></label>
+      <label>Open angle: <input type="number" id="hatchOpen" value="90" min="0" max="180" step="1"></label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="secondary" onclick="testHatch()">Test Open/Close</button>
+      <button onclick="setHatchAngles()">Save Hatch Angles</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Step 4: Verify Dispensing</h2>
+    <p class="mute" style="margin-bottom:12px">Test-drop from each pocket and check the IR 1 landing result.</p>
+    <div class="pocket-grid" id="verifyGrid"></div>
+    <div id="verifyResults" class="mute" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="saveCalibration()">💾 Save to Device (NVS)</button>
+      <button class="secondary" onclick="restoreDefaults()">Restore Defaults</button>
+    </div>
+  </div>
+
+  <div class="card"><h2>Calibration History</h2><div id="calibHistory"><span class="mute">No calibration history.</span></div></div>
+</div>
+
+<!-- ═══════════════════════ ALERTS ═══════════════════════ -->
+<div class="page" id="page-alerts">
+  <h2 style="font-size:20px;margin-bottom:16px">Alerts</h2>
+  <div id="alertsList"><span class="mute">No alerts.</span></div>
+</div>
+
+<!-- ═══════════════════════ SETTINGS ═══════════════════════ -->
+<div class="page" id="page-settings">
+  <h2 style="font-size:20px;margin-bottom:16px">Settings</h2>
+  <div class="card">
+    <h2>MQTT Broker</h2>
+    <div style="display:grid;grid-template-columns:1fr 100px 1fr;gap:12px;margin-bottom:12px">
+      <label><span style="font-weight:600;display:block;margin-bottom:4px">Broker Host</span><input id="setBroker" placeholder="broker.hivemq.com"></label>
+      <label><span style="font-weight:600;display:block;margin-bottom:4px">Port</span><input type="number" id="setPort" placeholder="1883"></label>
+      <label><span style="font-weight:600;display:block;margin-bottom:4px">Topic Prefix</span><input id="setPrefix" placeholder="medidispenser"></label>
+    </div>
+    <button onclick="saveSettings()">Save & Reconnect</button>
+  </div>
+  <div class="card">
+    <h2>Dispenser Timing</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <label><span style="font-weight:600;display:block;margin-bottom:4px">Reminder after (minutes)</span><input type="number" id="setReminder" value="5" min="1" max="60"></label>
+      <label><span style="font-weight:600;display:block;margin-bottom:4px">Mark missed after (minutes)</span><input type="number" id="setMissed" value="10" min="1" max="60"></label>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Volume</h2>
+    <div style="display:flex;align-items:center;gap:12px">
+      <input type="range" id="setVolume" min="0" max="30" value="18" style="flex:1">
+      <span id="volLabel">18</span>
+    </div>
+    <button style="margin-top:12px" onclick="saveVolume()">Set Volume</button>
+  </div>
+</div>
+
+</main>
+
+<!-- ═══════════════════════ MODALS ═══════════════════════ -->
+<div id="modalContainer"></div>
+
+<!-- ═══════════════════════ TOAST ═══════════════════════ -->
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════ STATE ═══════════════════════ */
+let selectedDevice = '';
+let selectedSlot = null;
+let devices = [];
+let scheduleItems = [];
+let events = [];
+let currentLang = 'en';
+let brokerConnected = false;
+let currentDeviceState = {};
+let currentCalibPocket = 1;
+let testResults = [];
+
+const $=id=>document.getElementById(id);
+const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+/* ═══════════════════════ TOAST ═══════════════════════ */
+function toast(msg, error=false) {
+  const el = document.createElement('div');
+  el.className = 'toast-msg' + (error?' error':'');
+  el.textContent = msg;
+  $('toast').appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+/* ═══════════════════════ NAVIGATION ═══════════════════════ */
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    const page = $('page-'+btn.dataset.page);
+    if(page) page.classList.add('active');
+    // Refresh page data
+    const pg = btn.dataset.page;
+    if(pg==='devices') loadDevices();
+    if(pg==='schedule') loadSchedule();
+    if(pg==='tests') loadTestHistory();
+    if(pg==='calibration') loadCalibration();
+    if(pg==='alerts') loadAlerts();
+    if(pg==='settings') loadSettings();
+  });
+});
+
+/* ═══════════════════════ DEVICE SELECTOR ═══════════════════════ */
+$('deviceSelect').addEventListener('change', e => {
+  selectedDevice = e.target.value;
+  refreshAll();
+});
+
+function refreshAll() {
+  loadDeviceState();
+  loadEvents();
+  loadSchedule();
+  updateFlowDiagram();
+}
+
+/* ═══════════════════════ SSE ═══════════════════════ */
+let sse;
+function connectSSE() {
+  sse = new EventSource('/api/sse');
+  sse.addEventListener('connected', e => {
+    console.log('SSE connected:', JSON.parse(e.data).id);
+  });
+  sse.addEventListener('broker', e => {
+    const d = JSON.parse(e.data);
+    brokerConnected = d.connected;
+    updateBrokerUI();
+  });
+  sse.addEventListener('heartbeat', e => {
+    const d = JSON.parse(e.data);
+    if(d.deviceId === selectedDevice) {
+      currentDeviceState = {...currentDeviceState, ...d, online:true, lastHeartbeat:d.ts};
+      updateDashboardUI();
+      updateFlowDiagram();
+    }
+  });
+  sse.addEventListener('event', e => {
+    const d = JSON.parse(e.data);
+    if(d.kind) {
+      // A new event - refresh events list
+      loadEvents();
+    }
+    if(d.deviceId === selectedDevice && d.state) {
+      currentDeviceState.state = d.state;
+      currentDeviceState.activeCompartment = d.activeCompartment;
+      updateDashboardUI();
+      updateFlowDiagram();
+    }
+  });
+  sse.addEventListener('test', e => {
+    const d = JSON.parse(e.data);
+    if(d.deviceId === selectedDevice && d.result) {
+      addTestResult(d.result);
+    }
+  });
+  sse.addEventListener('calibration', e => {
+    const d = JSON.parse(e.data);
+    if(d.deviceId === selectedDevice) {
+      updateCalibrationUI(d.calibration);
+    }
+  });
+  sse.addEventListener('error', () => {
+    setTimeout(connectSSE, 3000);
+  });
+}
+connectSSE();
+
+/* ═══════════════════════ API helpers ═══════════════════════ */
+async function api(url, method='GET', body=null) {
+  const opts = {method, headers:{}};
+  if(body) { opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+  const r = await fetch(url, opts);
+  if(!r.ok) {
+    const txt = await r.text();
+    throw new Error(txt || r.statusText);
+  }
+  const ct = r.headers.get('content-type');
+  if(ct && ct.includes('json')) return r.json();
+  return null;
+}
+
+/* ═══════════════════════ DEVICES ═══════════════════════ */
+async function loadDevices() {
+  try {
+    devices = await api('/api/devices');
+    renderDeviceList();
+    updateDeviceSelector();
+    // Load unregistered
+    const unreg = await api('/api/devices/unregistered');
+    renderUnregistered(unreg);
+  } catch(e) { console.error(e); }
+}
+
+function renderDeviceList() {
+  const tbody = $('devicesBody');
+  if(!devices.length) { tbody.innerHTML='<tr><td colspan="7" class="mute">No devices configured. Add one above.</td></tr>'; return; }
+  tbody.innerHTML = devices.map(d => `<tr>
+    <td><strong>${esc(d.name)}</strong>${d.patientName?'<br><span class="mute">'+esc(d.patientName)+'</span>':''}</td>
+    <td><code>${esc(d.deviceId)}</code></td>
+    <td><span class="badge ${d.online?'badge-ok':'badge-off'}">${d.online?'Online':'Offline'}</span></td>
+    <td>${d.battery!=null?d.battery+'%':'--'}</td>
+    <td>${esc(d.state)}</td>
+    <td>${d.lastHeartbeat?new Date(d.lastHeartbeat).toLocaleTimeString():'--'}</td>
+    <td>
+      <button class="small secondary" onclick="editDevice(${d.id})">Edit</button>
+      <button class="small danger" onclick="deleteDevice(${d.id},'${esc(d.name)}')">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+function updateDeviceSelector() {
+  const sel = $('deviceSelect');
+  const prev = sel.value;
+  sel.innerHTML = devices.length ?
+    devices.map(d => `<option value="${esc(d.deviceId)}">${esc(d.name)} (${esc(d.deviceId)})</option>`).join('') :
+    '<option value="">No devices</option>';
+  if(prev && devices.some(d=>d.deviceId===prev)) sel.value = prev;
+  else if(devices.length) { sel.value = devices[0].deviceId; selectedDevice = devices[0].deviceId; }
+  else selectedDevice = '';
+}
+
+function renderUnregistered(unreg) {
+  const card = $('unregisteredCard');
+  const keys = Object.keys(unreg);
+  if(!keys.length) { card.style.display='none'; return; }
+  card.style.display='block';
+  $('unregisteredList').innerHTML = keys.map(id =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <code>${esc(id)}</code>
+      <span class="mute">heard ${new Date(unreg[id]).toLocaleTimeString()}</span>
+      <button class="small" onclick="quickAddDevice('${esc(id)}')">+ Add</button>
+    </div>`).join('');
+}
+
+function quickAddDevice(deviceId) {
+  showDeviceModal(deviceId);
+}
+
+function showDeviceModal(deviceId='', editId=null) {
+  const isEdit = editId != null;
+  const existing = isEdit ? devices.find(d=>d.id===editId) : null;
+  $('modalContainer').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+    <div class="modal">
+      <h2>${isEdit?'Edit':'Add'} Device</h2>
+      <label><span>Device ID</span><input id="mdDeviceId" value="${esc(deviceId||(existing?existing.deviceId:''))}" ${isEdit?'disabled':''}></label>
+      <label><span>Name</span><input id="mdName" value="${esc(existing?existing.name:'')}"></label>
+      <label><span>Location (optional)</span><input id="mdLocation" value="${esc(existing?existing.location||'':'')}"></label>
+      <label><span>Patient Name (optional)</span><input id="mdPatient" value="${esc(existing?existing.patientName||'':'')}"></label>
+      <div class="actions">
+        <button class="secondary" onclick="$('modalContainer').innerHTML=''">Cancel</button>
+        <button onclick="${isEdit?`updateDevice(${editId})`:'addDevice()'}">${isEdit?'Save':'Add'}</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>$(isEdit?'mdName':'mdDeviceId').focus(),100);
+}
+
+async function addDevice() {
+  try {
+    await api('/api/devices', 'POST', {
+      deviceId: $('mdDeviceId').value.trim(),
+      name: $('mdName').value.trim(),
+      location: $('mdLocation').value.trim() || null,
+      patientName: $('mdPatient').value.trim() || null
+    });
+    $('modalContainer').innerHTML='';
+    toast('Device added!');
+    loadDevices();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function updateDevice(id) {
+  try {
+    await api('/api/devices/'+id, 'PUT', {
+      deviceId: '', // not used in PUT
+      name: $('mdName').value.trim(),
+      location: $('mdLocation').value.trim() || null,
+      patientName: $('mdPatient').value.trim() || null
+    });
+    $('modalContainer').innerHTML='';
+    toast('Device updated!');
+    loadDevices();
+  } catch(e) { toast(e.message, true); }
+}
+
+function editDevice(id) { const d = devices.find(x=>x.id===id); if(d) showDeviceModal(d.deviceId, id); }
+
+async function deleteDevice(id, name) {
+  if(!confirm('Delete device "'+name+'" and all its schedules?')) return;
+  try {
+    await api('/api/devices/'+id, 'DELETE');
+    toast('Device deleted.');
+    loadDevices();
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ DASHBOARD ═══════════════════════ */
+function updateBrokerUI() {
+  $('dBroker').className = 'dot '+(brokerConnected?'ok':'bad');
+  $('tBroker').textContent = brokerConnected?'Connected':'Offline';
+  $('brokerDot').className = 'dot '+(brokerConnected?'ok':'bad');
+}
+
+async function loadDeviceState() {
+  if(!selectedDevice) return;
+  try {
+    const devs = await api('/api/devices');
+    const d = devs.find(x=>x.deviceId===selectedDevice);
+    if(d) {
+      currentDeviceState = d;
+      updateDashboardUI();
+      updateFlowDiagram();
+      currentLang = d.lang || 'en';
+      updateLangButtons();
+    }
+  } catch(e) { console.error(e); }
+}
+
+function updateDashboardUI() {
+  const d = currentDeviceState;
+  $('dDevice').className = 'dot '+(d.online?'ok':'bad');
+  $('tDevice').textContent = d.online?'Online':'Offline';
+  $('hbInfo').textContent = d.lastHeartbeat ? 'Last heartbeat: '+new Date(d.lastHeartbeat).toLocaleTimeString() : '';
+  $('batteryVal').textContent = d.battery!=null?d.battery+'%':'--';
+  $('irVal').textContent = d.ir===true?'Object in tray':d.ir===false?'Tray empty':'Unknown';
+  const stateText = {idle:'Idle',waiting:'Waiting for patient',missed:'Dose MISSED',unknown:'',dispensing:'Dispensing',offline:'Offline'};
+  $('stateVal').textContent = stateText[d.state]||d.state||'';
+
+  // Active compartment highlight
+  document.querySelectorAll('#slots .slot').forEach((b,i) => {
+    b.classList.toggle('act', d.activeCompartment===i+1);
+  });
+
+  // Update next dose
+  updateNextDose();
+}
+
+function updateNextDose() {
+  const now = new Date();
+  const today = now.getDay(); // 0=Sun
+  const dayIdx = today === 0 ? 6 : today - 1; // convert to Mon=0
+  const nowMins = now.getHours()*60 + now.getMinutes();
+
+  let nextItem = null;
+  let nextMins = Infinity;
+
+  for(const item of scheduleItems) {
+    if(!item.enabled) continue;
+    const bits = item.days || [];
+    if(!bits.includes(dayIdx+1)) continue;
+    const [h,m] = item.time.split(':').map(Number);
+    const itemMins = h*60+m;
+    const diff = itemMins - nowMins;
+    if(diff > 0 && diff < nextMins) {
+      nextMins = diff;
+      nextItem = item;
+    }
+  }
+
+  if(nextItem) {
+    const hrs = Math.floor(nextMins/60);
+    const mins = nextMins%60;
+    $('nextDose').textContent = nextItem.time;
+    $('nextDoseLabel').textContent = `${nextItem.label||'Compartment '+nextItem.compartment} — in ${hrs?hrs+'h ':''}${mins}m`;
+  } else {
+    $('nextDose').textContent = '--';
+    $('nextDoseLabel').textContent = 'No more doses today';
+  }
+
+  // Today's doses
+  const todayItems = scheduleItems.filter(s => {
+    if(!s.enabled) return false;
+    const bits = s.days || [];
+    return bits.includes(dayIdx+1);
+  });
+  const todayEvts = events.filter(e => {
+    const d = new Date(e.time);
+    return d.toDateString()===now.toDateString() && (e.kind==='taken'||e.kind==='missed'||e.kind==='dispensed');
+  });
+  $('todayDoses').innerHTML = todayItems.length ?
+    todayItems.map(s => {
+      const taken = todayEvts.some(e=>e.kind==='taken'&&e.compartment===s.compartment);
+      const missed = todayEvts.some(e=>e.kind==='missed'&&e.compartment===s.compartment);
+      return `<div style="padding:4px 0"><span class="badge ${taken?'badge-ok':missed?'badge-off':'badge-warn'}">${taken?'✓ Taken':missed?'✗ Missed':'Pending'}</span> ${s.time} — ${esc(s.label||'C'+s.compartment)}</div>`;
+    }).join('') : '<span class="mute">No doses scheduled today.</span>';
+}
+
+/* ═══════════════════════ DISPENSE SLOTS ═══════════════════════ */
+(function initSlots() {
+  const container = $('slots');
+  for(let i=1;i<=8;i++){
+    const b=document.createElement('button');
+    b.className='slot';
+    b.textContent=i;
+    b.onclick=()=>{selectedSlot=i;paintSlots()};
+    container.appendChild(b);
+  }
+})();
+
+function paintSlots() {
+  [...$('slots').children].forEach((b,i)=>{
+    b.classList.toggle('sel',selectedSlot===i+1);
+    b.classList.toggle('act',currentDeviceState.activeCompartment===i+1);
+  });
+  $('goDispense').disabled = !selectedSlot || !selectedDevice;
+}
+
+$('goDispense').onclick = async () => {
+  if(!selectedDevice||!selectedSlot) return;
+  $('dispenseMsg').textContent = 'Sending...';
+  try {
+    await api('/api/dispense','POST',{deviceId:selectedDevice, compartment:selectedSlot, amount:+$('amt').value});
+    $('dispenseMsg').textContent = 'Command sent to compartment '+selectedSlot+'.';
+    toast('Dispense command sent!');
+  } catch(e) { $('dispenseMsg').textContent = 'Failed: '+e.message; toast(e.message, true); }
+};
+
+/* ═══════════════════════ EVENTS ═══════════════════════ */
+async function loadEvents() {
+  if(!selectedDevice) return;
+  try {
+    events = await api('/api/events/'+selectedDevice+'?limit=100');
+    renderEvents();
+    updateNextDose();
+  } catch(e) { console.error(e); }
+}
+
+function renderEvents() {
+  const container = $('activityLog');
+  if(!events.length) { container.innerHTML='<span class="mute">No events yet.</span>'; return; }
+  container.innerHTML = events.slice(0,50).map(e => `<div class="ev">
+    <span class="mute">${new Date(e.time).toLocaleString()}</span>
+    <span class="tag t-${e.kind}">${e.kind}</span>
+    <span>${e.compartment?'['+e.compartment+'] ':''}${esc(e.message)}</span>
+  </div>`).join('');
+}
+
+/* ═══════════════════════ SCHEDULE ═══════════════════════ */
+async function loadSchedule() {
+  if(!selectedDevice) return;
+  $('scheduleDevice').textContent = selectedDevice;
+  try {
+    scheduleItems = await api('/api/schedule/'+selectedDevice);
+    renderSchedule();
+    renderWeekCalendar();
+    updateSyncBadge();
+    updateNextDose();
+    loadAdherence();
+  } catch(e) { console.error(e); }
+}
+
+function renderSchedule() {
+  const tbody = $('scheduleBody');
+  if(!scheduleItems.length) { tbody.innerHTML='<tr><td colspan="8" class="mute">No doses scheduled. Add one above.</td></tr>'; return; }
+  tbody.innerHTML = scheduleItems.map((s,i) => `<tr>
+    <td>${i+1}</td>
+    <td><strong>${esc(s.time)}</strong></td>
+    <td>${(s.days||[]).map(d=>'<span class="day-chip selected" style="cursor:default;padding:2px 6px;font-size:11px">'+dayNames[d-1]+'</span>').join(' ')}</td>
+    <td>${s.compartment}</td>
+    <td>${s.amount}</td>
+    <td>${esc(s.label)||'<span class="mute">—</span>'}</td>
+    <td><label class="toggle"><input type="checkbox" ${s.enabled?'checked':''} onchange="toggleSchedule(${s.id})"><span class="slider"></span></label></td>
+    <td>
+      <button class="small secondary" onclick="editSchedule(${s.id})">Edit</button>
+      <button class="small danger" onclick="deleteSchedule(${s.id})">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+function updateSyncBadge() {
+  const devState = currentDeviceState;
+  const maxVer = scheduleItems.length ? Math.max(...scheduleItems.map(s=>s.version||0)) : 0;
+  const synced = devState.scheduleVersion != null && devState.scheduleVersion >= maxVer;
+  $('syncBadge').className = 'badge '+(synced?'badge-ok':'badge-warn');
+  $('syncBadge').textContent = synced ? '✓ Synced (v'+maxVer+')' : 'Not synced (device: v'+(devState.scheduleVersion||'?')+', server: v'+maxVer+')';
+}
+
+function renderWeekCalendar() {
+  const container = $('weekCalendar');
+  // Collect unique times
+  const times = [...new Set(scheduleItems.map(s=>s.time))].sort();
+  if(!times.length) { container.innerHTML='<span class="mute">No schedule to display.</span>'; return; }
+
+  let html = '<div class="week-grid">';
+  html += '<div class="week-cell week-header"></div>';
+  dayNames.forEach(d => html += '<div class="week-cell week-header">'+d+'</div>');
+
+  times.forEach(t => {
+    html += '<div class="week-cell week-time">'+t+'</div>';
+    for(let d=1;d<=7;d++) {
+      const items = scheduleItems.filter(s => s.time===t && (s.days||[]).includes(d));
+      html += '<div class="week-cell">';
+      items.forEach(s => {
+        html += '<span class="week-pill" title="Comp '+s.compartment+'">'+(s.label||'C'+s.compartment)+'</span>';
+      });
+      html += '</div>';
+    }
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function showScheduleModal(editItem=null) {
+  const isEdit = !!editItem;
+  const days = editItem ? (editItem.days||[]) : [1,2,3,4,5,6,7];
+  $('modalContainer').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+    <div class="modal">
+      <h2>${isEdit?'Edit':'Add'} Dose</h2>
+      <label><span>Time (HH:mm)</span><input type="time" id="msTime" value="${editItem?editItem.time:'08:00'}"></label>
+      <label><span>Compartment (1-8)</span><input type="number" id="msComp" value="${editItem?editItem.compartment:1}" min="1" max="8"></label>
+      <label><span>Amount (1-3)</span><input type="number" id="msAmount" value="${editItem?editItem.amount:1}" min="1" max="3"></label>
+      <label><span>Medicine Label</span><input id="msLabel" value="${esc(editItem?editItem.label:'')}"></label>
+      <label><span>Days</span>
+        <div class="day-chips" id="msDays">
+          ${dayNames.map((n,i) => `<span class="day-chip ${days.includes(i+1)?'selected':''}" data-day="${i+1}" onclick="this.classList.toggle('selected')">${n}</span>`).join('')}
+        </div>
+      </label>
+      <div class="actions">
+        <button class="secondary" onclick="$('modalContainer').innerHTML=''">Cancel</button>
+        <button onclick="${isEdit?`saveScheduleEdit(${editItem.id})`:'addScheduleItem()'}">${isEdit?'Save':'Add'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function getScheduleFormData() {
+  const days = [...document.querySelectorAll('#msDays .day-chip.selected')].map(c=>+c.dataset.day);
+  const time = $('msTime').value;
+  // Normalize time to HH:mm
+  const timeParts = time.split(':');
+  const normalizedTime = timeParts[0].padStart(2,'0')+':'+timeParts[1].padStart(2,'0');
+  return {
+    compartment: +$('msComp').value,
+    time: normalizedTime,
+    days,
+    amount: +$('msAmount').value,
+    label: $('msLabel').value.trim()
+  };
+}
+
+async function addScheduleItem() {
+  const data = getScheduleFormData();
+  if(!data.label) { if(!confirm('No label set for this compartment. Continue?')) return; }
+  try {
+    const r = await api('/api/schedule/'+selectedDevice, 'POST', data);
+    if(r.warning) toast(r.warning, false);
+    $('modalContainer').innerHTML='';
+    toast('Dose added!');
+    loadSchedule();
+  } catch(e) { toast(e.message, true); }
+}
+
+function editSchedule(id) {
+  const item = scheduleItems.find(s=>s.id===id);
+  if(item) showScheduleModal(item);
+}
+
+async function saveScheduleEdit(id) {
+  const data = getScheduleFormData();
+  try {
+    await api('/api/schedule/'+selectedDevice+'/'+id, 'PUT', data);
+    $('modalContainer').innerHTML='';
+    toast('Dose updated!');
+    loadSchedule();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function deleteSchedule(id) {
+  if(!confirm('Delete this scheduled dose?')) return;
+  try {
+    await api('/api/schedule/'+selectedDevice+'/'+id, 'DELETE');
+    toast('Dose deleted.');
+    loadSchedule();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function toggleSchedule(id) {
+  try {
+    await api('/api/schedule/'+selectedDevice+'/toggle/'+id, 'POST');
+    loadSchedule();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function resendSchedule() {
+  try {
+    await api('/api/schedule/'+selectedDevice+'/resend', 'POST');
+    toast('Schedule resent to device!');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ ADHERENCE ═══════════════════════ */
+async function loadAdherence() {
+  if(!selectedDevice) return;
+  try {
+    const r = await api('/api/adherence/'+selectedDevice);
+    renderAdherenceChart(r.summary);
+  } catch(e) { console.error(e); }
+}
+
+function renderAdherenceChart(summary) {
+  const container = $('adherenceChart');
+  const data = [...(summary||[])];
+  if(!data.length) { container.innerHTML='<span class="mute">No adherence data yet.</span>'; $('adherenceStats').textContent=''; return; }
+
+  // Simple bar chart with CSS
+  const maxVal = Math.max(...data.map(d=>Math.max(d.dispensed, d.taken, d.missed)), 1);
+  container.innerHTML = '<div style="display:flex;align-items:flex-end;gap:4px;height:180px;padding-bottom:20px">' +
+    data.slice(-14).map(d => {
+      const th = Math.max(d.taken/maxVal*160, 2);
+      const mh = Math.max(d.missed/maxVal*160, d.missed>0?2:0);
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative">
+        <div style="display:flex;flex-direction:column;gap:1px;align-items:center">
+          <div style="width:16px;height:${mh}px;background:var(--bad);border-radius:3px" title="${d.missed} missed"></div>
+          <div style="width:16px;height:${th}px;background:var(--ok);border-radius:3px" title="${d.taken} taken"></div>
+        </div>
+        <span style="font-size:10px;color:var(--mute);position:absolute;bottom:-18px;white-space:nowrap">${d.date.slice(5)}</span>
+      </div>`;
+    }).join('') + '</div>';
+
+  const totalTaken = data.reduce((s,d)=>s+d.taken,0);
+  const totalMissed = data.reduce((s,d)=>s+d.missed,0);
+  const total = totalTaken+totalMissed;
+  $('adherenceStats').textContent = total>0?`Adherence rate: ${Math.round(totalTaken/total*100)}% (${totalTaken} taken, ${totalMissed} missed over ${data.length} days)`:'';
+}
+
+function exportCsv() {
+  window.open('/api/adherence/'+selectedDevice+'/csv','_blank');
+}
+
+/* ═══════════════════════ SYSTEM FLOW ═══════════════════════ */
+function updateFlowDiagram() {
+  $('flowDevice').textContent = selectedDevice;
+  const state = (currentDeviceState.state||'unknown').toLowerCase();
+  document.querySelectorAll('.flow-box').forEach(box => {
+    box.classList.toggle('active', box.dataset.state === state);
+  });
+}
+
+/* ═══════════════════════ LANGUAGE ═══════════════════════ */
+function updateLangButtons() {
+  $('langEn').classList.toggle('active', currentLang==='en');
+  $('langTl').classList.toggle('active', currentLang==='tl');
+}
+
+async function setLang(lang) {
+  if(!selectedDevice) { toast('Select a device first.',true); return; }
+  try {
+    await api('/api/config/'+selectedDevice, 'POST', {lang});
+    currentLang = lang;
+    updateLangButtons();
+    toast('Language set to '+(lang==='en'?'English':'Tagalog')+'!');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ TESTS ═══════════════════════ */
+async function runTest(test) {
+  if(!selectedDevice) { toast('Select a device first.',true); return; }
+  testResults = [];
+  renderTestResults();
+  try {
+    await api('/api/test/'+selectedDevice, 'POST', {test});
+    toast('Test "'+test+'" sent!');
+    // Set 15s timeout for results
+    setTimeout(()=>{
+      if(!testResults.length) {
+        addTestResult({test, ok:false, detail:'No reply in 15 seconds.'});
+      }
+    }, 15000);
+  } catch(e) { toast(e.message, true); }
+}
+
+function addTestResult(result) {
+  testResults.push(result);
+  renderTestResults();
+}
+
+function renderTestResults() {
+  const container = $('testResults');
+  if(!testResults.length) { container.innerHTML='<span class="mute">Waiting for results...</span>'; return; }
+  container.innerHTML = testResults.map(r => {
+    const ok = r.ok === true;
+    const fail = r.ok === false;
+    return `<div class="test-item">
+      <div class="test-icon ${ok?'test-pass':fail?'test-fail':'test-wait'}">${ok?'✓':fail?'✗':'?'}</div>
+      <div><strong>${esc(r.test||'unknown')}</strong><div class="mute">${esc(r.detail||'')}</div></div>
+    </div>`;
+  }).join('');
+}
+
+async function loadTestHistory() {
+  if(!selectedDevice) return;
+  $('testDevice').textContent = selectedDevice;
+  try {
+    const history = await api('/api/test/'+selectedDevice+'/history');
+    const container = $('testHistory');
+    if(!history.length) { container.innerHTML='<span class="mute">No test history.</span>'; return; }
+    container.innerHTML = history.map(h => {
+      const results = JSON.parse(h.resultsJson||'[]');
+      const allOk = results.every(r=>r.ok);
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+        <span class="badge ${allOk?'badge-ok':'badge-off'}">${allOk?'PASS':'FAIL'}</span>
+        <span class="mute">${new Date(h.time).toLocaleString()}</span>
+        <span class="mute">${results.length} checks</span>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function testVoice(line) {
+  if(!selectedDevice) { toast('Select a device first.',true); return; }
+  try {
+    await api('/api/config/'+selectedDevice+'/testvoice', 'POST', {line});
+    toast('Playing voice line '+line+'...');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ CALIBRATION ═══════════════════════ */
+function initCalibration() {
+  // Pocket grid
+  const grid = $('pocketGrid');
+  grid.innerHTML = '';
+  for(let i=1;i<=8;i++){
+    const btn = document.createElement('button');
+    btn.className = 'pocket-btn';
+    btn.textContent = 'Pocket '+i;
+    btn.onclick = () => { currentCalibPocket=i; gotoPocket(i); $('calibPocketNum').textContent=i; };
+    grid.appendChild(btn);
+  }
+  // Verify grid
+  const vgrid = $('verifyGrid');
+  vgrid.innerHTML = '';
+  for(let i=1;i<=8;i++){
+    const btn = document.createElement('button');
+    btn.className = 'pocket-btn';
+    btn.textContent = 'Test Pocket '+i;
+    btn.onclick = () => verifyPocket(i);
+    vgrid.appendChild(btn);
+  }
+}
+initCalibration();
+
+async function loadCalibration() {
+  if(!selectedDevice) return;
+  $('calibDevice').textContent = selectedDevice;
+  try {
+    const calib = await api('/api/calibration/'+selectedDevice);
+    updateCalibrationUI(calib);
+    const history = await api('/api/calibration/'+selectedDevice+'/history');
+    const container = $('calibHistory');
+    if(!history.length) { container.innerHTML='<span class="mute">No calibration history.</span>'; return; }
+    container.innerHTML = history.slice(0,10).map(h =>
+      `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="mute">${new Date(h.time).toLocaleString()}</span> <code style="font-size:12px">${esc(h.valuesJson).substring(0,120)}...</code></div>`
+    ).join('');
+  } catch(e) { console.error(e); }
+}
+
+function updateCalibrationUI(calib) {
+  if(!calib) return;
+  $('calibHome').textContent = calib.home||90;
+  $('hatchClosed').value = calib.hatchClosed||0;
+  $('hatchOpen').value = calib.hatchOpen||90;
+  const offsets = calib.offsets||[0,0,0,0,0,0,0,0];
+  $('calibOffsets').textContent = 'Offsets: ['+offsets.map(o=>o.toFixed(1)).join(', ')+']';
+
+  // Check servo range warning
+  const home = calib.home||90;
+  const step = calib.step||22.5;
+  const positions = [];
+  for(let i=0;i<8;i++) positions.push(home + i*step + (offsets[i]||0));
+  const minPos = Math.min(...positions);
+  const maxPos = Math.max(...positions);
+  if(minPos < 0 || maxPos > 180) {
+    $('calibHomeWarn').textContent = '⚠️ Warning: Some pocket positions ('+minPos.toFixed(1)+'°-'+maxPos.toFixed(1)+'°) fall outside the MG996R servo range (0-180°). Adjust the home position.';
+    $('calibHomeWarn').style.color = 'var(--bad)';
+  } else {
+    $('calibHomeWarn').textContent = 'All 8 pocket positions are within servo range ('+minPos.toFixed(1)+'° to '+maxPos.toFixed(1)+'°). ✓';
+    $('calibHomeWarn').style.color = 'var(--ok)';
+  }
+}
+
+async function jogCarousel(deg) {
+  if(!selectedDevice) return;
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'jog',deg}); } catch(e) { toast(e.message,true); }
+}
+
+async function gotoPocket(pocket) {
+  if(!selectedDevice) return;
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'goto',pocket}); } catch(e) { toast(e.message,true); }
+}
+
+async function setHome() {
+  if(!selectedDevice) return;
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'home_set'}); toast('Home position set!'); } catch(e) { toast(e.message,true); }
+}
+
+async function savePocketOffset() {
+  if(!selectedDevice) return;
+  // The device will compute the offset from its current jog position vs expected
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'pocket_offset',pocket:currentCalibPocket,deg:0}); toast('Offset saved for pocket '+currentCalibPocket+'!'); } catch(e) { toast(e.message,true); }
+}
+
+async function setHatchAngles() {
+  if(!selectedDevice) return;
+  try {
+    await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'hatch_set',closed:+$('hatchClosed').value,open:+$('hatchOpen').value});
+    toast('Hatch angles saved!');
+  } catch(e) { toast(e.message,true); }
+}
+
+async function testHatch() {
+  if(!selectedDevice) return;
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'hatch_set',closed:+$('hatchClosed').value,open:+$('hatchOpen').value,test:true}); toast('Testing hatch...'); } catch(e) { toast(e.message,true); }
+}
+
+async function verifyPocket(pocket) {
+  if(!selectedDevice) return;
+  try {
+    await api('/api/dispense','POST',{deviceId:selectedDevice,compartment:pocket,amount:1});
+    toast('Test-dispensing from pocket '+pocket+'...');
+  } catch(e) { toast(e.message,true); }
+}
+
+async function saveCalibration() {
+  if(!selectedDevice) return;
+  try { await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'save'}); toast('Calibration saved to device NVS!'); } catch(e) { toast(e.message,true); }
+}
+
+async function restoreDefaults() {
+  if(!confirm('Restore calibration to factory defaults? This will reset home, offsets, and hatch angles.')) return;
+  if(!selectedDevice) return;
+  try {
+    await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'hatch_set',closed:0,open:90});
+    await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'home_set'});
+    await api('/api/calibration/'+selectedDevice+'/cmd','POST',{cmd:'save'});
+    toast('Defaults restored and saved!');
+  } catch(e) { toast(e.message,true); }
+}
+
+/* ═══════════════════════ ALERTS ═══════════════════════ */
+async function loadAlerts() {
+  try {
+    const all = selectedDevice ?
+      await api('/api/events/'+selectedDevice+'?limit=200') :
+      await api('/api/events?limit=200');
+    const alerts = all.filter(e => ['missed','empty','jam','reminder'].includes(e.kind));
+    const container = $('alertsList');
+    if(!alerts.length) { container.innerHTML='<span class="mute">No alerts.</span>'; return; }
+    container.innerHTML = alerts.map(a => `<div class="card" style="display:flex;align-items:center;gap:12px">
+      <span class="tag t-${a.kind}" style="font-size:14px">${a.kind.toUpperCase()}</span>
+      <div style="flex:1">
+        <div>${a.compartment?'[Compartment '+a.compartment+'] ':''}${esc(a.message)}</div>
+        <div class="mute">${esc(a.deviceId)} — ${new Date(a.time).toLocaleString()}</div>
+      </div>
+      ${!a.acknowledged?'<button class="small secondary" onclick="ackAlert('+a.id+',this)">Acknowledge</button>':'<span class="badge badge-ok">ACK</span>'}
+    </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function ackAlert(id, btn) {
+  try {
+    await api('/api/events/'+id+'/ack','POST');
+    btn.outerHTML = '<span class="badge badge-ok">ACK</span>';
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ SETTINGS ═══════════════════════ */
+async function loadSettings() {
+  try {
+    const s = await api('/api/settings');
+    $('setBroker').value = s['mqtt:broker']||'';
+    $('setPort').value = s['mqtt:port']||'';
+    $('setPrefix').value = s['mqtt:prefix']||'';
+    $('setReminder').value = s['reminder_minutes']||'5';
+    $('setMissed').value = s['missed_minutes']||'10';
+    $('setVolume').value = s['volume']||'18';
+    $('volLabel').textContent = $('setVolume').value;
+  } catch(e) { console.error(e); }
+}
+
+$('setVolume').addEventListener('input', () => {
+  $('volLabel').textContent = $('setVolume').value;
+});
+
+async function saveSettings() {
+  try {
+    await api('/api/settings','POST',{
+      'mqtt:broker': $('setBroker').value.trim(),
+      'mqtt:port': $('setPort').value.trim(),
+      'mqtt:prefix': $('setPrefix').value.trim(),
+      'reminder_minutes': $('setReminder').value,
+      'missed_minutes': $('setMissed').value,
+      'volume': $('setVolume').value
+    });
+    toast('Settings saved! Broker reconnecting...');
+  } catch(e) { toast(e.message, true); }
+}
+
+async function saveVolume() {
+  if(!selectedDevice) { toast('Select a device first.',true); return; }
+  try {
+    await api('/api/config/'+selectedDevice,'POST',{lang:currentLang, volume:+$('setVolume').value});
+    toast('Volume set to '+$('setVolume').value+'!');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ═══════════════════════ INITIAL LOAD ═══════════════════════ */
+async function init() {
+  await loadDevices();
+  loadDeviceState();
+  loadEvents();
+  loadSchedule();
+  loadSettings();
+
+  // Periodic state check (fallback, SSE is primary)
+  setInterval(async () => {
+    try {
+      const s = await api('/api/state');
+      brokerConnected = s.broker;
+      updateBrokerUI();
+    } catch { brokerConnected=false; updateBrokerUI(); }
+  }, 10000);
+
+  setInterval(loadDeviceState, 15000);
+  setInterval(updateNextDose, 60000);
+}
+init();
+</script>
+</body>
+</html>
